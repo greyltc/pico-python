@@ -59,11 +59,10 @@ import platform
 # float is always defined as 32 bits
 # double is defined as 64 bits
 from ctypes import byref, POINTER, create_string_buffer, c_float, \
-    c_int16, c_uint16, c_int32, c_uint32, c_uint64, c_void_p
+    c_int16, c_uint16, c_int32, c_uint32, c_uint64, c_void_p, CFUNCTYPE
 from ctypes import c_int32 as c_enum
 
 from picoscope.picobase import _PicoscopeBase
-
 
 class PS4000(_PicoscopeBase):
     """The following are low-level functions for the PS4000."""
@@ -126,7 +125,14 @@ class PS4000(_PicoscopeBase):
 
     SWEEP_TYPES = {"Up": 0, "Down": 1, "UpDown": 2, "DownUp": 3}
 
-    def __init__(self, serialNumber=None, connect=True):
+    def __init__(self, serialNumber=None, connect=True, blockReadyCB = None):
+        if blockReadyCB is None:
+            self._lowLevelBlockReadyCB = c_void_p()
+        else:
+            # the signature for the block ready function
+            BLOCKREADY = CFUNCTYPE(c_void_p, c_int16, c_enum, c_void_p)
+            self._lowLevelBlockReadyCB = BLOCKREADY(blockReadyCB)
+
         """Load DLLs."""
         self.handle = None
         if platform.system() == 'Linux':
@@ -271,7 +277,7 @@ class PS4000(_PicoscopeBase):
             c_int16(self.handle), c_uint32(numPreTrigSamples),
             c_uint32(numPostTrigSamples), c_uint32(timebase),
             c_int16(oversample), byref(timeIndisposedMs),
-            c_uint16(segmentIndex), c_void_p(), c_void_p())
+            c_uint16(segmentIndex), self._lowLevelBlockReadyCB, c_void_p())
         self.checkResult(m)
         return timeIndisposedMs.value
 
