@@ -341,11 +341,14 @@ class _PicoscopeBase(object):
             This is only implemented for PS4000 series devices where
             the only acceptable values for VRange are 0.5 or 5.0
         """
-        VRangeAPI = self.CHANNEL_RANGE[-1]
+        VRangeAPI = None
         for item in self.CHANNEL_RANGE:
-            if item["rangeV"] - VRange >= 0:
+            if np.isclose(item["rangeV"], VRange):
                 VRangeAPI = item
                 break
+
+        if VRangeAPI is None:
+            raise ValueError('Provided VRange is not valid')
 
         self._lowLevelSetExtTriggerRange(VRangeAPI["apivalue"])
 
@@ -444,7 +447,7 @@ class _PicoscopeBase(object):
             channel = self.CHANNELS[channel]
 
         if dataV is None:
-            dataV = np.empty(dataRaw.size, dtype=dtype)
+            dataV = np.empty(dataRaw.shape, dtype=dtype)
 
         a2v = self.CHRange[channel] / dtype(self.getMaxValue())
         np.multiply(dataRaw, a2v, dataV)
@@ -829,6 +832,10 @@ class _PicoscopeBase(object):
         Return serial numbers as list of strings.
         """
         return self._lowLevelEnumerateUnits()
+
+    def ping(self):
+        """Ping unit to check that the already opened device is connected."""
+        return self._lowLevelPingUnit()
 
     def open(self, serialNumber=None):
         """Open the scope, using a serialNumber if given."""
